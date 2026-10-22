@@ -367,6 +367,68 @@ fn construct_config(reviewer_count: u32, edit: impl FnOnce(&mut ProgrammeConfig)
     env.register(Programme, (config, reviewers, vec![&env, verifier]));
 }
 
+/// Like `construct_config` but lets both the reviewer and verifier counts be
+/// varied independently. Used to test the `NoReviewers` and `NoVerifiers`
+/// guards without coupling them to each other.
+fn construct_roster(reviewer_count: u32, verifier_count: u32) {
+    let env = milepost_test_utils::new_test_env();
+    let asset = milepost_test_utils::register_token(&env);
+
+    let mut reviewers = Vec::new(&env);
+    for _ in 0..reviewer_count {
+        reviewers.push_back(Address::generate(&env));
+    }
+
+    let mut verifiers = Vec::new(&env);
+    for _ in 0..verifier_count {
+        verifiers.push_back(Address::generate(&env));
+    }
+
+    let config = ProgrammeConfig {
+        creator: Address::generate(&env),
+        token: asset,
+        treasury: Address::generate(&env),
+        attest: Address::generate(&env),
+        record: Address::generate(&env),
+        policy: Address::generate(&env),
+        schema: BytesN::from_array(&env, &[1u8; 32]),
+        fee_bps: FEE_BPS,
+        apply_deadline: APPLY_DEADLINE,
+        review_deadline: REVIEW_DEADLINE,
+        release_deadline: RELEASE_DEADLINE,
+        sweep_deadline: SWEEP_DEADLINE,
+        quorum: 1,
+        tranches: 3,
+        minimum_award: 0,
+        metadata_hash: BytesN::from_array(&env, &[7u8; 32]),
+    };
+
+    env.register(Programme, (config, reviewers, verifiers));
+}
+
+/// A programme with no reviewers can never reach quorum, so every application
+/// would be permanently unfinalisable. The constructor refuses it.
+///
+/// The exact error discriminant is asserted rather than a bare `should_panic`
+/// because `construct_roster` passes a fake attest address: any config that
+/// clears all earlier guards would subsequently panic on `SchemaNotFound`, and
+/// a vague `should_panic` would pass even if the `NoReviewers` guard were
+/// deleted.
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")] // NoReviewers
+fn construction_without_reviewers_is_rejected() {
+    construct_roster(0, 1);
+}
+
+/// A programme with no verifiers has no trusted attester, so no tranche could
+/// ever be released. The constructor refuses it to prevent a programme from
+/// taking money it can never pay out.
+#[test]
+#[should_panic(expected = "Error(Contract, #18)")] // NoVerifiers
+fn construction_without_verifiers_is_rejected() {
+    construct_roster(1, 0);
+}
+
 // ---- contributions ----
 
 #[test]
