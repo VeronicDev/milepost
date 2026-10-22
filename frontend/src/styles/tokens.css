@@ -29,6 +29,8 @@
 
   /* Layout */
   --page-max-width: 1200px;
+  --calendar-btn-height: 44px;
+  --calendar-btn-padding-inline: 16px;
   --page-gutter: var(--space-5);
   --page-pad-top: var(--space-6);
   --page-pad-bottom: var(--space-10);
