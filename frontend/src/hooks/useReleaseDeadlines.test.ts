@@ -73,17 +73,18 @@ describe('useReleaseDeadlines', () => {
     expect(mocks.programmeAt).toHaveBeenCalledTimes(readsAfterInitial);
 
     rerender({ ids: ['b', 'c'] });
-    await waitFor(() => expect(result.current.size).toBe(2));
+    // The old map also has two entries, so wait for the new one to land.
+    await waitFor(() => expect(result.current.has('c')).toBe(true));
     expect(result.current.has('a')).toBe(false);
-    expect(result.current.has('c')).toBe(true);
+    expect(result.current.size).toBe(2);
   });
 
   it('ignores results from an effect cancelled by an id change', async () => {
     let resolveOld!: (value: ReturnType<typeof configResult>) => void;
     mocks.programmeAt.mockImplementation((id: string) => ({
-      get_config: id === 'old'
+      get_config: () => (id === 'old'
         ? new Promise((resolve) => { resolveOld = resolve; })
-        : Promise.resolve(configResult(DEADLINE)),
+        : Promise.resolve(configResult(DEADLINE))),
     }));
     const { result, rerender } = renderHook(
       ({ id }: { id: string }) => useReleaseDeadlines([id], new Set()),
